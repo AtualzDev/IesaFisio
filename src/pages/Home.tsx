@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GraduationCap, Home as HomeIcon, Sparkles, Accessibility, Instagram, Mail, Award, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const SpineIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 40 80" fill="currentColor" className={className}>
@@ -120,8 +121,70 @@ const Carousel = () => {
 };
 
 export default function Home() {
+  const [settings, setSettings] = useState({
+    professional_name: 'Dra. Iêsa Pinhão',
+    specialty: 'Fisioterapeuta | CREFITO 259070-F',
+    location: 'Putumuju',
+    whatsapp_number: '5577998141406',
+    profile_image_url: '/iesa.png',
+    theme_color: '#0A4D33'
+  });
+
+  useEffect(() => {
+    // Record page view when component mounts
+    const recordView = async () => {
+      try {
+        await supabase.from('page_views').insert([{}]);
+      } catch (e) {
+        console.error("View recording failed", e);
+      }
+    };
+
+    // Fetch site settings
+    const loadSettings = async () => {
+      try {
+        const queryParams = new URLSearchParams(window.location.search);
+        const tid = queryParams.get('tid');
+
+        if (tid) {
+          const { data } = await supabase.from('templates').select('*').eq('id', tid).single();
+          if (data) {
+            setSettings(data);
+            return;
+          }
+        }
+
+        // Fallback
+        const { data } = await supabase.from('site_settings').select('*').eq('id', 1).single();
+        if (data) {
+          setSettings(data);
+        }
+      } catch (e) {
+        console.error("Failed to load settings", e);
+      }
+    };
+
+    recordView();
+    loadSettings();
+  }, []);
+
+  const handleWhatsappClick = async () => {
+    try {
+      await supabase.from('whatsapp_clicks').insert([{}]);
+    } catch (e) {
+      console.error("Click recording failed", e);
+    }
+  };
+
+  const formattedWhatsApp = settings.whatsapp_number.replace(/\D/g, '');
+
   return (
-    <div className="min-h-screen bg-[#0A4D33] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#137A52] via-[#0A4D33] to-[#031A11] text-white font-sans flex justify-center items-center p-4 sm:p-8 relative overflow-hidden selection:bg-[#D4AF37] selection:text-[#052E1E]">
+    <div
+      className="min-h-screen text-white font-sans flex justify-center items-center p-4 sm:p-8 relative overflow-hidden selection:bg-[#D4AF37] selection:text-[#052E1E]"
+      style={{
+        background: `radial-gradient(ellipse at top, ${settings.theme_color} 0%, #031A11 100%)`
+      }}
+    >
 
       {/* Decorative background elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
@@ -138,9 +201,9 @@ export default function Home() {
         <div className="flex items-center gap-4 mb-12 opacity-90">
           <SpineIcon className="w-8 h-12 text-[#D4AF37]" />
           <div className="flex flex-col">
-            <span className="font-bold text-lg leading-tight tracking-wider text-white">Dra. Iêsa Pinhão</span>
-            <span className="font-bold text-lg leading-tight tracking-wider text-white">Putumuju</span>
-            <span className="text-[9px] font-semibold tracking-[0.3em] uppercase mt-1 text-[#D4AF37]">Fisioterapeuta</span>
+            <span className="font-bold text-lg leading-tight tracking-wider text-white">{settings.professional_name.split(' ').slice(0, 2).join(' ')}</span>
+            <span className="font-bold text-lg leading-tight tracking-wider text-white">{settings.location}</span>
+            <span className="text-[9px] font-semibold tracking-[0.3em] uppercase mt-1 text-[#D4AF37]">{settings.specialty.split('|')[0]}</span>
           </div>
         </div>
 
@@ -148,8 +211,8 @@ export default function Home() {
         <div className="relative mb-10">
           <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-full border-[4px] border-[#D4AF37]/80 p-1.5 relative z-10 bg-gradient-to-br from-[#137A52] to-[#052E1E] shadow-2xl">
             <img
-              src="/iesa.png"
-              alt="Dra. Iêsa Pinhão Putumuju"
+              src={settings.profile_image_url}
+              alt={settings.professional_name}
               className="w-full h-full object-cover rounded-full"
             />
           </div>
@@ -161,11 +224,11 @@ export default function Home() {
         {/* Main Title */}
         <div className="text-center mb-12">
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 leading-tight tracking-tight">
-            Dra. Iêsa Pinhão<br />Putumuju
+            {settings.professional_name}<br />{settings.location}
           </h1>
           <div className="inline-block px-4 py-1.5 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/20">
             <h2 className="text-[#D4AF37] text-xs sm:text-sm font-semibold tracking-widest uppercase">
-              Fisioterapeuta | CREFITO 259070-F
+              {settings.specialty}
             </h2>
           </div>
         </div>
@@ -177,12 +240,17 @@ export default function Home() {
           <ServiceItem icon={<HomeIcon size={24} strokeWidth={1.5} />} text="Atendimento domiciliar" />
           <ServiceItem icon={<Sparkles size={24} strokeWidth={1.5} />} text="Liberação miofascial" />
           <ServiceItem icon={<Accessibility size={24} strokeWidth={1.5} />} text="Pilates" />
-          <ServiceItem icon={<Instagram size={24} strokeWidth={1.5} />} text={
-            <div className="flex flex-col">
-              <span className="text-xs text-white/60 uppercase tracking-wider">Siga no Instagram</span>
-              <span className="font-semibold text-white">@fisioiesa</span>
+          <a href={`https://wa.me/${formattedWhatsApp}`} target="_blank" rel="noopener noreferrer" onClick={handleWhatsappClick} className="relative group inline-flex items-center justify-center w-full">
+            <div className="relative flex items-center w-full bg-[#1E1E1E] rounded-full p-2 pr-6 border border-white/10 shadow-2xl transform group-hover:scale-[1.02] transition-all duration-300">
+              <div className="bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-full p-3.5 mr-4 shadow-inner">
+                <WhatsAppIcon className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex flex-col text-left">
+                <span className="text-[#25D366] font-bold text-[10px] uppercase tracking-[0.2em]">Dúvidas no WhatsApp</span>
+                <span className="text-white font-bold text-xl tracking-wide">{settings.whatsapp_number}</span>
+              </div>
             </div>
-          } />
+          </a>
         </div>
 
         {/* Carousel Section */}
@@ -198,17 +266,6 @@ export default function Home() {
             </div>
           </Link>
 
-          <a href="https://wa.me/5577998141406" target="_blank" rel="noopener noreferrer" className="relative group inline-flex items-center justify-center w-full max-w-[340px]">
-            <div className="relative flex items-center w-full bg-[#1E1E1E] rounded-full p-2 pr-6 border border-white/10 shadow-2xl transform group-hover:scale-[1.02] transition-all duration-300">
-              <div className="bg-gradient-to-br from-[#25D366] to-[#128C7E] rounded-full p-3.5 mr-4 shadow-inner">
-                <WhatsAppIcon className="w-7 h-7 text-white" />
-              </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[#25D366] font-bold text-[10px] uppercase tracking-[0.2em]">Dúvidas no WhatsApp</span>
-                <span className="text-white font-bold text-xl tracking-wide">(77) 99814-1406</span>
-              </div>
-            </div>
-          </a>
         </div>
 
         {/* Footer Info */}
@@ -216,9 +273,6 @@ export default function Home() {
           <div className="flex gap-6">
             <a href="https://instagram.com/fisioiesa" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all">
               <Instagram size={18} />
-            </a>
-            <a href="mailto:info@fisio.conquista" className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all">
-              <Mail size={18} />
             </a>
           </div>
           <span className="text-white/40 text-xs font-medium tracking-wider">Vitória da Conquista - BA</span>
